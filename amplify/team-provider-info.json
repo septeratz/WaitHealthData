@@ -1,0 +1,79 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-restdata-dev-b4045-authRole",
+      "UnauthRoleArn": "arn:aws:iam::324037321168:role/amplify-restdata-dev-b4045-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::324037321168:role/amplify-restdata-dev-b4045-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-restdata-dev-b4045-deployment",
+      "UnauthRoleName": "amplify-restdata-dev-b4045-unauthRole",
+      "StackName": "amplify-restdata-dev-b4045",
+      "StackId": "arn:aws:cloudformation:us-east-1:324037321168:stack/amplify-restdata-dev-b4045/e9e09ed0-c90b-11ef-862d-0ed90967629b",
+      "AmplifyAppId": "d2gaa4r37h9gzn",
+      "APIGatewayAuthURL": "https://s3.amazonaws.com/amplify-restdata-dev-b4045-deployment/amplify-cfn-templates/api/APIGatewayAuthStack.json"
+    },
+    "categories": {
+      "function": {
+        "restdata79a0f53e": {
+          "deploymentBucketName": "amplify-restdata-dev-b4045-deployment",
+          "s3Key": "amplify-builds/restdata79a0f53e-37704f68504d56577261-build.zip"
+        },
+        "restdata28e7a164": {
+          "deploymentBucketName": "amplify-restdata-dev-b4045-deployment",
+          "s3Key": "amplify-builds/restdata28e7a164-37637631524c71753430-build.zip"
+        },
+        "restdata08795f50": {
+          "deploymentBucketName": "amplify-restdata-dev-b4045-deployment",
+          "s3Key": "amplify-builds/restdata08795f50-335862732b4c77626358-build.zip"
+        }
+      },
+      "auth": {
+        "restdata": {}
+      },
+      "api": {
+        "restdata": {}
+      },
+      "storage": {
+        "RestHeartrate": {}
+      }
+    }
+  },
+  "devs": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-restdata-devs-2bbfb-authRole",
+      "UnauthRoleArn": "arn:aws:iam::324037321168:role/amplify-restdata-devs-2bbfb-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::324037321168:role/amplify-restdata-devs-2bbfb-authRole",
+      "Region": "us-east-2",
+      "DeploymentBucketName": "amplify-restdata-devs-2bbfb-deployment",
+      "UnauthRoleName": "amplify-restdata-devs-2bbfb-unauthRole",
+      "StackName": "amplify-restdata-devs-2bbfb",
+      "StackId": "arn:aws:cloudformation:us-east-2:324037321168:stack/amplify-restdata-devs-2bbfb/0f9676f0-cb86-11ef-8230-0202a00a790f",
+      "AmplifyAppId": "d3t8rdx1y9ls8u"
+    },
+    "categories": {
+      "auth": {
+        "restdata": {}
+      },
+      "function": {
+        "restdata08795f50": {
+          "deploymentBucketName": "amplify-restdata-devs-2bbfb-deployment",
+          "s3Key": "amplify-builds/restdata08795f50-335862732b4c77626358-build.zip"
+        },
+        "restdata28e7a164": {
+          "deploymentBucketName": "amplify-restdata-devs-2bbfb-deployment",
+          "s3Key": "amplify-builds/restdata28e7a164-39575373763175583144-build.zip"
+        },
+        "restdata79a0f53e": {
+          "deploymentBucketName": "amplify-restdata-devs-2bbfb-deployment",
+          "s3Key": "amplify-builds/restdata79a0f53e-37704f68504d56577261-build.zip"
+        }
+      },
+      "api": {
+        "restdata": {}
+      },
+      "storage": {
+        "RestHeartrate": {}
+      }
+    }
+  }
+}

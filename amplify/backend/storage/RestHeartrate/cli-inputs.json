@@ -1,0 +1,14 @@
+{
+  "resourceName": "RestHeartrate",
+  "tableName": "RestHeartrate",
+  "partitionKey": {
+    "fieldName": "id",
+    "fieldType": "number"
+  },
+  "sortKey": {
+    "fieldName": "heartRate",
+    "fieldType": "number"
+  },
+  "gsi": [],
+  "triggerFunctions": []
+}

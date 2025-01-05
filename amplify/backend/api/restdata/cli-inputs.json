@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "paths": {
+    "/resource": {
+      "name": "/resource",
+      "lambdaFunction": "restdata28e7a164",
+      "permissions": {
+        "setting": "open"
+      }
+    }
+  }
+}

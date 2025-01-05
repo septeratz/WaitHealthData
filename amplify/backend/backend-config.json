@@ -1,0 +1,117 @@
+{
+  "api": {
+    "restdata": {
+      "dependsOn": [
+        {
+          "attributes": [
+            "Name",
+            "Arn"
+          ],
+          "category": "function",
+          "resourceName": "restdata28e7a164"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "API Gateway"
+    }
+  },
+  "auth": {
+    "restdata": {
+      "dependsOn": [],
+      "frontendAuthConfig": {
+        "mfaConfiguration": "OFF",
+        "mfaTypes": [
+          "SMS"
+        ],
+        "passwordProtectionSettings": {
+          "passwordPolicyCharacters": [],
+          "passwordPolicyMinLength": 8
+        },
+        "signupAttributes": [
+          "EMAIL"
+        ],
+        "socialProviders": [],
+        "usernameAttributes": [],
+        "verificationMechanisms": [
+          "EMAIL"
+        ]
+      },
+      "providerPlugin": "awscloudformation",
+      "service": "Cognito",
+      "serviceType": "managed"
+    }
+  },
+  "function": {
+    "restdata08795f50": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
+    "restdata28e7a164": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
+    "restdata79a0f53e": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    }
+  },
+  "parameters": {
+    "AMPLIFY_function_restdata08795f50_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata08795f50"
+        }
+      ]
+    },
+    "AMPLIFY_function_restdata08795f50_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata08795f50"
+        }
+      ]
+    },
+    "AMPLIFY_function_restdata28e7a164_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata28e7a164"
+        }
+      ]
+    },
+    "AMPLIFY_function_restdata28e7a164_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata28e7a164"
+        }
+      ]
+    },
+    "AMPLIFY_function_restdata79a0f53e_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata79a0f53e"
+        }
+      ]
+    },
+    "AMPLIFY_function_restdata79a0f53e_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "restdata79a0f53e"
+        }
+      ]
+    }
+  },
+  "storage": {
+    "RestHeartrate": {
+      "providerPlugin": "awscloudformation",
+      "service": "DynamoDB"
+    }
+  }
+}
