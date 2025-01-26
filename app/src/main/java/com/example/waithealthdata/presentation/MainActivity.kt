@@ -5,6 +5,7 @@
 package com.example.waithealthdata.presentation
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
@@ -16,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Button
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.amplifyframework.api.rest.RestOptions
@@ -24,18 +26,24 @@ import com.amplifyframework.core.Amplify
 import com.example.myapplication.R
 import org.json.JSONObject
 import com.amplifyframework.api.aws.AWSApiPlugin
+import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
 
 class MainActivity : Activity(), SensorEventListener {
 
     private val handler = Handler(Looper.getMainLooper())
     private val interval = 30 * 1000L // 30초 간격
 
+    private lateinit var dataClient: DataClient
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
+    private var skinTemperatureSensor: Sensor? = null
     private var currentHeartRate: Float = -1f // 초기 심박수 값
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -57,6 +65,12 @@ class MainActivity : Activity(), SensorEventListener {
             Log.e("Sensor", "Heart rate sensor is not available.")
             return
         }
+        skinTemperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
+        if (skinTemperatureSensor == null) {
+            Log.d("SensorCheck", "피부 온도 센서가 지원되지 않습니다.")
+        } else {
+            Log.d("SensorCheck", "피부 온도 센서가 지원됩니다.")
+        }
 
 
         // 권한 확인 및 요청
@@ -73,8 +87,29 @@ class MainActivity : Activity(), SensorEventListener {
             dataCollector.startCollecting()
 
         }
-    }
 
+        // DataClient 초기화
+        dataClient = Wearable.getDataClient(this)
+        skinTemperatureSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+        // 데이터 전송 버튼 예제
+        findViewById<Button>(R.id.sendDataButton).setOnClickListener {
+            sendHeartRateData(currentHeartRate) // 예: 심박수 데이터 72 bpm 전송
+        }
+    }
+    private fun sendHeartRateData(heartRate: Float) {
+        val putDataMapReq = PutDataMapRequest.create("/heart_rate").apply {
+            dataMap.putInt("heart_rate", heartRate.toInt())
+            dataMap.putLong("timestamp", System.currentTimeMillis())
+        }
+        val putDataReq = putDataMapReq.asPutDataRequest()
+        dataClient.putDataItem(putDataReq).addOnSuccessListener {
+            Log.d("WearableApp", "심박수 데이터 전송 성공: $heartRate bpm")
+        }.addOnFailureListener {
+            Log.e("WearableApp", "심박수 데이터 전송 실패", it)
+        }
+    }
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -100,9 +135,18 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_HEART_RATE) {
-            currentHeartRate = event.values[0] // 심박수 값 업데이트
-            Log.i("Sensor", "Heart rate updated: $currentHeartRate")
+
+        when (event?.sensor?.type) {
+            Sensor.TYPE_HEART_RATE -> {
+                val heartRate = event.values[0].toInt()
+                sendDataToPhone("heart_rate", heartRate)
+                Log.d("WearOS", "심박수: $heartRate bpm")
+            }
+            Sensor.TYPE_AMBIENT_TEMPERATURE -> {
+                val skinTemperature = event.values[0]
+                sendDataToPhone("skin_temperature", skinTemperature)
+                Log.d("WearOS", "피부 온도: $skinTemperature°C")
+            }
         }
     }
 
@@ -125,7 +169,24 @@ class MainActivity : Activity(), SensorEventListener {
         })
     }
 
-    private fun collectAndSendData() {
+    private fun sendDataToPhone(key: String, value: Any) {
+        val putDataMapRequest = PutDataMapRequest.create("/sensor_data").apply {
+            dataMap.putString("key", key)
+            when (value) {
+                is Int -> dataMap.putInt("value", value)
+                is Float -> dataMap.putFloat("value", value)
+            }
+            dataMap.putLong("timestamp", System.currentTimeMillis())
+        }
+
+        val putDataRequest = putDataMapRequest.asPutDataRequest()
+        dataClient.putDataItem(putDataRequest)
+            .addOnSuccessListener { Log.d("WearOS", "$key 데이터 전송 성공: $value") }
+            .addOnFailureListener { Log.e("WearOS", "$key 데이터 전송 실패", it) }
+    }
+
+
+    private fun collectAndSendData() { // aws 연동 코드, 작동 안함.
         if (currentHeartRate < 0) {
             Log.e("DataCollector", "No heart rate data available.")
             return
