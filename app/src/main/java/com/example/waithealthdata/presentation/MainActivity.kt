@@ -23,16 +23,36 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.amplifyframework.api.rest.RestOptions
-import com.amplifyframework.auth.cognito.AWSCognitoAuthPlugin
-import com.amplifyframework.core.Amplify
 import com.example.myapplication.R
-import org.json.JSONObject
-import com.amplifyframework.api.aws.AWSApiPlugin
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import kotlin.math.*
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+data class SensorData(
+    val timestamp: String,
+    val heart_rate: Int?,
+    val drink_count: Int?,
+    val user_state: String,
+    val drink_amount: Int?,
+    val alcohol_percentage: Float?
+)
+
+interface ApiService {
+    @POST("sensor_data")
+    fun sendSensorData(@Body data: SensorData): Call<Void>
+}
 
 class MainActivity : Activity(), SensorEventListener {
 
@@ -60,15 +80,7 @@ class MainActivity : Activity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Amplify 초기화
-        try {
-            Amplify.addPlugin(AWSApiPlugin()) // API 플러그인
-            Amplify.addPlugin(AWSCognitoAuthPlugin())
-            Amplify.configure(applicationContext)
-            Log.i("MyAmplifyApp", "Initialized Amplify")
-        } catch (error: Exception) {
-            Log.e("MyAmplifyApp", "Could not initialize Amplify", error)
-        }
+
 
         // 센서 관리자 초기화
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -101,8 +113,6 @@ class MainActivity : Activity(), SensorEventListener {
             )
         } else {
             startSensorMonitoring()
-            val dataCollector = DataCollector()
-            dataCollector.startCollecting()
 
         }
 
@@ -228,14 +238,6 @@ class MainActivity : Activity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-    fun startDataCollection() {
-        handler.post(object : Runnable {
-            override fun run() {
-                collectAndSendData()
-                handler.postDelayed(this, interval)
-            }
-        })
-    }
 
     private fun sendDataToPhone() {
         val putDataMapRequest = PutDataMapRequest.create("/drink_count").apply {
@@ -244,47 +246,45 @@ class MainActivity : Activity(), SensorEventListener {
             dataMap.putLong("timestamp", System.currentTimeMillis())
         }
         val putDataRequest = putDataMapRequest.asPutDataRequest()
-
+        val timestamp = Instant.ofEpochMilli(System.currentTimeMillis())
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         dataClient.putDataItem(putDataRequest)
-            .addOnSuccessListener {
-                Log.d("WearOS", "음주 잔 수 데이터 전송 성공: drink_count=$drinkCount, heart_rate=$currentHeartRate")
-            }
-            .addOnFailureListener {
-                Log.e("WearOS", "음주 잔 수 데이터 전송 실패", it)
-            }
+        sendDataToAWS(
+            timestamp,currentHeartRate.toInt(), drinkCount,
+            "평상시", null, null)
     }
 
 
-
-
-    private fun collectAndSendData() { // aws 연동 코드, 작동 안함.
-        if (currentHeartRate < 0) {
-            Log.e("DataCollector", "No heart rate data available.")
-            return
-        }
-
-        val timestamp = System.currentTimeMillis()
-        val jsonData = JSONObject().apply {
-            put("heartRate", currentHeartRate)
-            put("timestamp", timestamp)
-        }
-
-        val requestOptions = RestOptions.builder()
-            .addPath("/data")
-            .addBody(jsonData.toString().toByteArray())
+    fun sendDataToAWS(
+        timestamp: String,
+        heartRate: Int?,
+        drinkCount: Int?,
+        userState: String,
+        drinkAmount: Int?,
+        alcoholPercentage: Float?
+    ) {
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://moh7cm1z80.execute-api.us-east-1.amazonaws.com/prod/")
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        Amplify.API.post(
-            requestOptions,
-            { response -> Log.i("AWS", "Data sent: ${response.data.asString()}") },
-            { error -> Log.e("AWS", "Failed to send data", error) }
-        )
+        val api = retrofit.create(ApiService::class.java)
+        val sensorData = SensorData(timestamp, heartRate, drinkCount, userState, drinkAmount, alcoholPercentage)
 
-        Log.d("DataCollector", "Data collected and sent: $jsonData")
-    }
+        api.sendSensorData(sensorData).enqueue(object : Callback<Void> {
+            override fun onResponse(call: Call<Void>, response: Response<Void>) {
+                if (response.isSuccessful) {
+                    Log.d("API","✅ 데이터가 성공적으로 전송되었습니다.")
+                } else {
+                    Log.e("API","❌ 서버 응답 오류: ${response.code()}")
+                }
+            }
 
-    fun stopDataCollection() {
-        handler.removeCallbacksAndMessages(null)
+            override fun onFailure(call: Call<Void>, t: Throwable) {
+                Log.e("API","❌ 네트워크 오류: ${t.message}")
+            }
+        })
     }
 
 

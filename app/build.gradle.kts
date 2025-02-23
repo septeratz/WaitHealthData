@@ -47,6 +47,11 @@ dependencies {
     implementation(libs.aws.datastore) // AWS DataStore (선택)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.play.services.wearable)
+
+    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:converter-moshi:2.9.0")
+
+    implementation ("com.squareup.retrofit2:converter-gson:2.7.1")
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
     implementation(libs.ui.graphics)
