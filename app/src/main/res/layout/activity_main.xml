@@ -1,39 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:context="com.example.waithealthdata.presentation.MainActivity">
+
+    <!-- 데이터 전송 버튼 -->
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/drinkCountTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:text="Collecting Resting Data..."
-        android:textSize="18sp"
-        android:textColor="#000" />
+        android:text="TextView"
+        app:layout_constraintBottom_toTopOf="@+id/sendDataButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <Button
         android:id="@+id/sendDataButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginStart="78dp"
-        android:layout_marginEnd="77dp"
-        android:layout_marginBottom="46dp"
-        android:text="Button" />
+        android:text="데이터 전송"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="50dp" />
 
-    <TextView
-        android:id="@+id/tvDrinkCount"
+    <!-- UI를 감싸는 레이아웃 (처음에는 숨김) -->
+    <LinearLayout
+        android:id="@+id/dataInputLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginStart="67dp"
-        android:layout_marginTop="44dp"
-        android:padding="8dp"
-        android:text="Drinks: 0"
-        android:textSize="18sp" />
+        android:background="@android:color/white"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-</RelativeLayout>
+        <!-- 음주 상태 선택 (Spinner) -->
+        <Spinner
+            android:id="@+id/userStateSpinner"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp" />
+
+        <!-- 술 도수 입력 (EditText) -->
+        <EditText
+            android:id="@+id/alcoholInput"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:hint="술 도수 입력 (예: 12.5)"
+            android:inputType="numberDecimal" />
+
+        <!-- 확인 버튼 -->
+        <Button
+            android:id="@+id/confirmButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="확인" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

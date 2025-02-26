@@ -44,7 +44,8 @@ dependencies {
     implementation(libs.core) // Amplify Core SDK
     implementation(libs.aws.api) // AWS API
     implementation(libs.aws.auth.cognito) // AWS Cognito (선택)
-    implementation(libs.aws.datastore) // AWS DataStore (선택)
+    implementation(libs.aws.datastore)
+    implementation(libs.constraintlayout) // AWS DataStore (선택)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.play.services.wearable)
 

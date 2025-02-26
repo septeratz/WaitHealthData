@@ -19,7 +19,12 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -56,7 +61,9 @@ interface ApiService {
 
 class MainActivity : Activity(), SensorEventListener {
 
-    private val handler = Handler(Looper.getMainLooper())
+    private var isSendingData = false  // 🔹 전송 상태 플래그
+    private val handler = Handler(Looper.getMainLooper())  // 🔹 1초 간격 실행을 위한 핸들러
+
     private val interval = 30 * 1000L // 30초 간격
 
     private lateinit var dataClient: DataClient
@@ -74,6 +81,13 @@ class MainActivity : Activity(), SensorEventListener {
     private val COOLDOWN_MS = 1000L // 중복 실행 방지 시간
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
+
+    private lateinit var sendDataButton: Button
+    private lateinit var confirmButton: Button
+    private lateinit var userStateSpinner: Spinner
+    private lateinit var alcoholInput: EditText
+    private lateinit var dataInputLayout: LinearLayout
+
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +116,21 @@ class MainActivity : Activity(), SensorEventListener {
             Log.d("SensorCheck", "피부 온도 센서가 지원됩니다.")
         }
 
+        // UI 요소 초기화
+        sendDataButton = findViewById(R.id.sendDataButton)
+        confirmButton = findViewById(R.id.confirmButton)
+        userStateSpinner = findViewById(R.id.userStateSpinner)
+        alcoholInput = findViewById(R.id.alcoholInput)
+        dataInputLayout = findViewById(R.id.dataInputLayout)
+
+        // 기본적으로 숨김
+        dataInputLayout.visibility = View.GONE
+
+        // Spinner 설정
+        val states = listOf("평상시", "음주 중")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, states)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        userStateSpinner.adapter = adapter
 
         // 권한 확인 및 요청
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS)
@@ -121,9 +150,26 @@ class MainActivity : Activity(), SensorEventListener {
         skinTemperatureSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
-        // 데이터 전송 버튼 예제
-        findViewById<Button>(R.id.sendDataButton).setOnClickListener {
-            sendHeartRateData(currentHeartRate) // 예: 심박수 데이터 72 bpm 전송
+
+        // "데이터 전송" 버튼 클릭 시 UI 표시
+        sendDataButton.setOnClickListener {
+            dataInputLayout.visibility = View.VISIBLE
+        }
+
+
+        // 확인 버튼 클릭 시 전송 시작/중지
+        confirmButton.setOnClickListener {
+            if (!isSendingData) {
+                // 🔹 전송 시작
+                isSendingData = true
+                confirmButton.text = "전송 중지"  // 🔹 버튼 텍스트 변경
+                startDataSending()
+            } else {
+                // 🔹 전송 중지
+                isSendingData = false
+                confirmButton.text = "확인"  // 🔹 버튼 텍스트 변경
+                handler.removeCallbacksAndMessages(null)  // 🔹 반복 실행 중단
+            }
         }
     }
     private fun sendHeartRateData(heartRate: Float) {
@@ -204,7 +250,7 @@ class MainActivity : Activity(), SensorEventListener {
 
     private fun updateDrinkUI() {
         runOnUiThread {
-            findViewById<TextView>(R.id.tvDrinkCount).text = "Drinks: $drinkCount"
+            findViewById<TextView>(R.id.drinkCountTextView).text = "Drinks: $drinkCount"
         }
     }
     private fun vibrate(durationMs: Long) {
@@ -238,7 +284,18 @@ class MainActivity : Activity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-
+    // 🔹 1초마다 AWS로 데이터 전송하는 함수
+    private fun startDataSending() {
+        val sendDataRunnable = object : Runnable {
+            override fun run() {
+                if (isSendingData) {
+                    sendDataToAWS()
+                    handler.postDelayed(this, 1000)  // 🔹 1초 후 다시 실행
+                }
+            }
+        }
+        handler.post(sendDataRunnable)  // 🔹 첫 실행
+    }
     private fun sendDataToPhone() {
         val putDataMapRequest = PutDataMapRequest.create("/drink_count").apply {
             dataMap.putInt("drink_count", drinkCount) // 🔹 키값 "drink_count"로 변경
@@ -250,42 +307,38 @@ class MainActivity : Activity(), SensorEventListener {
             .atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         dataClient.putDataItem(putDataRequest)
-        sendDataToAWS(
-            timestamp,currentHeartRate.toInt(), drinkCount,
-            "평상시", null, null)
     }
 
 
-    fun sendDataToAWS(
-        timestamp: String,
-        heartRate: Int?,
-        drinkCount: Int?,
-        userState: String,
-        drinkAmount: Int?,
-        alcoholPercentage: Float?
-    ) {
+    private fun sendDataToAWS() {
+        val timestamp = Instant.now()
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+
+        val userState = userStateSpinner.selectedItem.toString()
+        val alcoholPercentage = alcoholInput.text.toString().toFloatOrNull()
+
         val retrofit = Retrofit.Builder()
             .baseUrl("https://moh7cm1z80.execute-api.us-east-1.amazonaws.com/prod/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         val api = retrofit.create(ApiService::class.java)
-        val sensorData = SensorData(timestamp, heartRate, drinkCount, userState, drinkAmount, alcoholPercentage)
+        val sensorData = SensorData(timestamp, currentHeartRate.toInt(), drinkCount, userState, drinkCount, alcoholPercentage)
 
         api.sendSensorData(sensorData).enqueue(object : Callback<Void> {
             override fun onResponse(call: Call<Void>, response: Response<Void>) {
                 if (response.isSuccessful) {
-                    Log.d("API","✅ 데이터가 성공적으로 전송되었습니다.")
+                    Log.d("API", "✅ 데이터 전송 성공")
                 } else {
-                    Log.e("API","❌ 서버 응답 오류: ${response.code()}")
+                    Log.e("API", "❌ 서버 응답 오류: ${response.code()}")
                 }
             }
 
             override fun onFailure(call: Call<Void>, t: Throwable) {
-                Log.e("API","❌ 네트워크 오류: ${t.message}")
+                Log.e("API", "❌ 네트워크 오류: ${t.message}")
             }
         })
     }
-
 
 }
