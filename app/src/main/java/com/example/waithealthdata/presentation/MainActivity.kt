@@ -13,6 +13,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +27,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.myapplication.R
@@ -78,7 +80,7 @@ class MainActivity : Activity(), SensorEventListener {
     private var lastShakeTime = 0L
     private val TILT_ANGLE = 60f // 기울기 감지 각도
     private val SHAKE_THRESHOLD = 15f // 흔들림 감지 임계값
-    private val COOLDOWN_MS = 1000L // 중복 실행 방지 시간
+    private val COOLDOWN_MS = 5000L // 중복 실행 방지 시간
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
@@ -87,7 +89,29 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var userStateSpinner: Spinner
     private lateinit var alcoholInput: EditText
     private lateinit var dataInputLayout: LinearLayout
+    private lateinit var sensorSettingView: View
+    private lateinit var resetSensorButton: Button
+    private lateinit var saveSensorButton: Button
+    private lateinit var toggleViewButton: Button
 
+
+    // 센서 처리 부분
+    private var baselineGravity: FloatArray? = null
+    private var baselineGyro: FloatArray? = null
+    private var savedGravity: FloatArray? = null
+    private var savedGyro: FloatArray? = null
+    private val DRINK_ANGLE_THRESHOLD = 175  // 기울기 기준 (예제 값)
+    private var currentGravity: FloatArray? = null
+    private var currentGyro: FloatArray? = null
+    private val ALPHA = 0.2f  // 필터 강도 조절 (0에 가까울수록 반응이 느려짐)
+
+    private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
+        if (output == null) return input
+        for (i in input.indices) {
+            output[i] = output[i] + ALPHA * (input[i] - output[i])
+        }
+        return output
+    }
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,9 +146,59 @@ class MainActivity : Activity(), SensorEventListener {
         userStateSpinner = findViewById(R.id.userStateSpinner)
         alcoholInput = findViewById(R.id.alcoholInput)
         dataInputLayout = findViewById(R.id.dataInputLayout)
+        resetSensorButton = findViewById(R.id.resetSensorButton)
+        saveSensorButton = findViewById(R.id.saveSensorButton)
+        sensorSettingView = findViewById(R.id.sensorSettingView)
+        toggleViewButton = findViewById(R.id.toggleViewButton)
 
         // 기본적으로 숨김
         dataInputLayout.visibility = View.GONE
+        sensorSettingView.visibility = View.GONE
+
+        // "데이터 전송" 버튼 클릭 시 UI 표시
+        sendDataButton.setOnClickListener {
+            dataInputLayout.visibility = View.VISIBLE
+            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
+        }
+
+        findViewById<Button>(R.id.layoutDisableButton).setOnClickListener{
+            dataInputLayout.visibility = View.INVISIBLE
+        }
+
+        // "설정 열기" 버튼 클릭 시 UI 표시
+        toggleViewButton.setOnClickListener {
+            sensorSettingView.visibility = View.VISIBLE
+            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
+        }
+
+
+        // 확인 버튼 클릭 시 전송 시작/중지
+        confirmButton.setOnClickListener {
+            if (!isSendingData) {
+                // 🔹 전송 시작
+                isSendingData = true
+                confirmButton.text = "전송 중지"  // 🔹 버튼 텍스트 변경
+                startDataSending()
+            } else {
+                // 🔹 전송 중지
+                isSendingData = false
+                confirmButton.text = "확인"  // 🔹 버튼 텍스트 변경
+                handler.removeCallbacksAndMessages(null)  // 🔹 반복 실행 중단
+            }
+        }
+
+        // 센서 초기화 버튼
+        resetSensorButton.setOnClickListener{
+            resetSensorValues()
+            Toast.makeText(this, "센서 세팅값이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+
+        }
+
+        // 센서값 저장 버튼
+        saveSensorButton.setOnClickListener{
+            saveSensorValues()
+        }
+
 
         // Spinner 설정
         val states = listOf("평상시", "음주 중")
@@ -151,26 +225,7 @@ class MainActivity : Activity(), SensorEventListener {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
 
-        // "데이터 전송" 버튼 클릭 시 UI 표시
-        sendDataButton.setOnClickListener {
-            dataInputLayout.visibility = View.VISIBLE
-        }
 
-
-        // 확인 버튼 클릭 시 전송 시작/중지
-        confirmButton.setOnClickListener {
-            if (!isSendingData) {
-                // 🔹 전송 시작
-                isSendingData = true
-                confirmButton.text = "전송 중지"  // 🔹 버튼 텍스트 변경
-                startDataSending()
-            } else {
-                // 🔹 전송 중지
-                isSendingData = false
-                confirmButton.text = "확인"  // 🔹 버튼 텍스트 변경
-                handler.removeCallbacksAndMessages(null)  // 🔹 반복 실행 중단
-            }
-        }
     }
     private fun sendHeartRateData(heartRate: Float) {
         val putDataMapReq = PutDataMapRequest.create("/heart_rate").apply {
@@ -200,6 +255,60 @@ class MainActivity : Activity(), SensorEventListener {
         }
     }
 
+
+    fun detectShake(event: SensorEvent) {
+        if (baselineGravity == null) return  // 기준값이 없으면 감지 안함
+
+
+        val x = event.values[0] - baselineGravity!![0]
+        val y = event.values[1] - baselineGravity!![1]
+        val z = event.values[2] - baselineGravity!![2]
+
+        val acceleration = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
+
+        if (acceleration > SHAKE_THRESHOLD) {
+            drinkCount = max(0, drinkCount - 1)
+            vibrateWatch()
+            Log.d("ShakeDetection", "Shake detected! Count: $drinkCount")
+        }
+    }
+
+    private fun vibrateWatch() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(500)
+        }
+    }
+
+    fun detectDrinking(gravity: FloatArray) {
+        if (baselineGravity == null || savedGravity == null) return  // 기준값이 설정되지 않았다면 감지 안함
+
+        val deltaGravity = FloatArray(3) { gravity[it] - baselineGravity!![it] }
+        val pitch = Math.toDegrees(atan2(deltaGravity[0].toDouble(), deltaGravity[2].toDouble())).toFloat()
+
+
+        if (pitch > DRINK_ANGLE_THRESHOLD && System.currentTimeMillis() - lastTiltTime > COOLDOWN_MS) {
+            drinkCount++
+            lastTiltTime = System.currentTimeMillis()
+            updateDrinkUI()
+            Log.d("DrinkingDetection", "Drink detected! Count: $drinkCount")
+        }
+    }
+
+    fun saveSensorValues() {
+        savedGravity = currentGravity?.clone()
+        savedGyro = currentGyro?.clone()
+        Log.d("SensorSave", "센서값 저장됨: Gravity=${savedGravity?.contentToString()}, Gyro=${savedGyro?.contentToString()}")
+    }
+
+    fun resetSensorValues() {
+        baselineGravity = currentGravity?.clone()
+        baselineGyro = currentGyro?.clone()
+        Log.d("SensorReset", "센서 초기값 설정됨: Gravity=${baselineGravity?.contentToString()}, Gyro=${baselineGyro?.contentToString()}")
+    }
+
     private fun startSensorMonitoring() {
         // 심박수 센서 등록
         heartRateSensor?.let {
@@ -222,10 +331,21 @@ class MainActivity : Activity(), SensorEventListener {
                 sendDataToPhone()
                 Log.d("WearOS", "피부 온도: $skinTemperature°C")
             }
+            Sensor.TYPE_ACCELEROMETER -> {
+                // Low-Pass Filter 적용 (작은 움직임 필터링)
+                currentGravity = lowPassFilter(event.values.clone(), currentGravity)
 
-            Sensor.TYPE_ACCELEROMETER -> handleMotion(event.values)
-                // 기존 센서 처리 유지...
+                // 마시는 행동 감지
+                detectDrinking(currentGravity!!)
 
+                // 흔들림 감지
+                detectShake(event)
+            }
+
+            Sensor.TYPE_GYROSCOPE -> {
+                // 자이로 데이터 저장
+                currentGyro = lowPassFilter(event.values.clone(), currentGyro)
+            }
         }
     }
 
@@ -284,13 +404,13 @@ class MainActivity : Activity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
-    // 🔹 1초마다 AWS로 데이터 전송하는 함수
+    // 🔹 60초마다 AWS로 데이터 전송하는 함수
     private fun startDataSending() {
         val sendDataRunnable = object : Runnable {
             override fun run() {
                 if (isSendingData) {
                     sendDataToAWS()
-                    handler.postDelayed(this, 1000)  // 🔹 1초 후 다시 실행
+                    handler.postDelayed(this, 1000 * 60)  // 🔹 60초 후 다시 실행
                 }
             }
         }
