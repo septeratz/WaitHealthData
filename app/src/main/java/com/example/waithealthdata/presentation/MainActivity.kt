@@ -43,7 +43,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
 import java.time.Instant
-import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -80,7 +79,7 @@ class MainActivity : Activity(), SensorEventListener {
     private var lastShakeTime = 0L
     private val TILT_ANGLE = 60f // 기울기 감지 각도
     private val SHAKE_THRESHOLD = 15f // 흔들림 감지 임계값
-    private val COOLDOWN_MS = 5000L // 중복 실행 방지 시간
+    private val COOLDOWN_MS = 1L // 중복 실행 방지 시간
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
@@ -95,15 +94,20 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var toggleViewButton: Button
 
 
+
     // 센서 처리 부분
     private var baselineGravity: FloatArray? = null
     private var baselineGyro: FloatArray? = null
     private var savedGravity: FloatArray? = null
     private var savedGyro: FloatArray? = null
-    private val DRINK_ANGLE_THRESHOLD = 175  // 기울기 기준 (예제 값)
+    private val DRINK_ANGLE_THRESHOLD = 90 // 기울기 기준 (예제 값)
     private var currentGravity: FloatArray? = null
     private var currentGyro: FloatArray? = null
-    private val ALPHA = 0.2f  // 필터 강도 조절 (0에 가까울수록 반응이 느려짐)
+    private val ALPHA = 0.1f  // 필터 강도 조절 (0에 가까울수록 반응이 느려짐)
+    private var tiltStartTime = -1L                      // 기울기 시작 시간
+    private val TILT_HOLD_THRESHOLD = 800L              // 몇 ms 이상 유지되어야 마심으로 감지할지
+    private val DRINK_MATCH_ANGLE = 20.0  // 예) 20도 이하이면 "비슷한 자세"라고 본다
+    private var lastDrinkTime = 0L               // 마지막으로 감지된 시점
 
     private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
         if (output == null) return input
@@ -227,18 +231,7 @@ class MainActivity : Activity(), SensorEventListener {
 
 
     }
-    private fun sendHeartRateData(heartRate: Float) {
-        val putDataMapReq = PutDataMapRequest.create("/heart_rate").apply {
-            dataMap.putInt("heart_rate", heartRate.toInt())
-            dataMap.putLong("timestamp", System.currentTimeMillis())
-        }
-        val putDataReq = putDataMapReq.asPutDataRequest()
-        dataClient.putDataItem(putDataReq).addOnSuccessListener {
-            Log.d("WearableApp", "심박수 데이터 전송 성공: $heartRate bpm")
-        }.addOnFailureListener {
-            Log.e("WearableApp", "심박수 데이터 전송 실패", it)
-        }
-    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -282,21 +275,56 @@ class MainActivity : Activity(), SensorEventListener {
         }
     }
 
-    fun detectDrinking(gravity: FloatArray) {
-        if (baselineGravity == null || savedGravity == null) return  // 기준값이 설정되지 않았다면 감지 안함
 
-        val deltaGravity = FloatArray(3) { gravity[it] - baselineGravity!![it] }
-        val pitch = Math.toDegrees(atan2(deltaGravity[0].toDouble(), deltaGravity[2].toDouble())).toFloat()
+    private fun detectDrinkingWithSavedGravity() {
+        if (savedGravity == null || currentGravity == null) return
 
+        val now = System.currentTimeMillis()
 
-        if (pitch > DRINK_ANGLE_THRESHOLD && System.currentTimeMillis() - lastTiltTime > COOLDOWN_MS) {
-            drinkCount++
-            lastTiltTime = System.currentTimeMillis()
-            updateDrinkUI()
-            Log.d("DrinkingDetection", "Drink detected! Count: $drinkCount")
+        // 1) 만약 마지막 검출로부터 5초가 지나지 않았다면, 그대로 리턴
+        if (now - lastDrinkTime < COOLDOWN_MS) {
+            return
+        }
+
+        // 2) 현재 자세와 저장된 "마시는 자세" 사이 각도를 구해서,
+        //    충분히 비슷하면(20도 이하) "팔을 들어올린 상태"라고 간주
+        val angle = angleBetween(savedGravity!!, currentGravity!!)
+
+        if (angle < DRINK_MATCH_ANGLE) {
+            // 기울임 시작점이 -1L이면 지금을 기울임 시작으로 기록
+            if (tiltStartTime < 0) {
+                tiltStartTime = now
+            } else {
+                // 이미 기울기 중이라면, 얼마나 유지됐는지 확인
+                if (now - tiltStartTime >= TILT_HOLD_THRESHOLD) {
+                    // (마시는 동작 감지)
+                    drinkCount++
+                    vibrateWatch()
+                    updateDrinkUI()
+
+                    Log.d("DrinkingDetection", "Drink detected! Count=$drinkCount")
+
+                    // 감지 시점 기록 + 기울임 상태 초기화
+                    lastDrinkTime = now
+                    tiltStartTime = -1L
+                }
+            }
+        } else {
+            // "마시는 자세" 범위에서 벗어났으므로 기울임 상태 리셋
+            tiltStartTime = -1L
         }
     }
 
+
+    private fun angleBetween(g1: FloatArray, g2: FloatArray): Double {
+        val dot = g1[0]*g2[0] + g1[1]*g2[1] + g1[2]*g2[2]
+        val mag1 = kotlin.math.sqrt(g1[0]*g1[0] + g1[1]*g1[1] + g1[2]*g1[2])
+        val mag2 = kotlin.math.sqrt(g2[0]*g2[0] + g2[1]*g2[1] + g2[2]*g2[2])
+        val cosine = dot / (mag1 * mag2)
+        val clamped = cosine.coerceIn((-1.0).toFloat(), 1.0F)
+        val angleRadians = kotlin.math.acos(clamped)
+        return Math.toDegrees(angleRadians.toDouble())
+    }
     fun saveSensorValues() {
         savedGravity = currentGravity?.clone()
         savedGyro = currentGyro?.clone()
@@ -336,7 +364,7 @@ class MainActivity : Activity(), SensorEventListener {
                 currentGravity = lowPassFilter(event.values.clone(), currentGravity)
 
                 // 마시는 행동 감지
-                detectDrinking(currentGravity!!)
+                detectDrinkingWithSavedGravity()
 
                 // 흔들림 감지
                 detectShake(event)
