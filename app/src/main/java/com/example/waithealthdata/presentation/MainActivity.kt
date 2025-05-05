@@ -45,11 +45,13 @@ import retrofit2.http.POST
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.*
 
 data class SensorData(
     val timestamp: String,
     val heart_rate: Int?,
     val drink_count: Int?,
+    val elapsed_time: Long,
     val user_state: String,
     val drink_amount: Int?,
     val alcohol_percentage: Float?
@@ -79,7 +81,7 @@ class MainActivity : Activity(), SensorEventListener {
     private var lastShakeTime = 0L
     private val TILT_ANGLE = 60f // 기울기 감지 각도
     private val SHAKE_THRESHOLD = 15f // 흔들림 감지 임계값
-    private val COOLDOWN_MS = 1L // 중복 실행 방지 시간
+    private val COOLDOWN_MS = 10000L // 중복 실행 방지 시간
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
@@ -93,20 +95,22 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var saveSensorButton: Button
     private lateinit var toggleViewButton: Button
 
-
+    // ――― 시간 관리용 ―――
+    private var initTime: Long = 0L            // 앱 시작(또는 전송 시작) 시간
+    private val baseTimeStack = ArrayDeque<Long>() // 마실 때마다 쌓는 스택
+    private var baseTime: Long = 0L            // 현재 경과 기준 시간
 
     // 센서 처리 부분
     private var baselineGravity: FloatArray? = null
     private var baselineGyro: FloatArray? = null
     private var savedGravity: FloatArray? = null
     private var savedGyro: FloatArray? = null
-    private val DRINK_ANGLE_THRESHOLD = 90 // 기울기 기준 (예제 값)
     private var currentGravity: FloatArray? = null
     private var currentGyro: FloatArray? = null
     private val ALPHA = 0.1f  // 필터 강도 조절 (0에 가까울수록 반응이 느려짐)
     private var tiltStartTime = -1L                      // 기울기 시작 시간
     private val TILT_HOLD_THRESHOLD = 800L              // 몇 ms 이상 유지되어야 마심으로 감지할지
-    private val DRINK_MATCH_ANGLE = 20.0  // 예) 20도 이하이면 "비슷한 자세"라고 본다
+    private val DRINK_MATCH_ANGLE = 20.0  // 20도 이하이면 "비슷한 자세"라고 본다
     private var lastDrinkTime = 0L               // 마지막으로 감지된 시점
 
     private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
@@ -182,6 +186,11 @@ class MainActivity : Activity(), SensorEventListener {
                 // 🔹 전송 시작
                 isSendingData = true
                 confirmButton.text = "전송 중지"  // 🔹 버튼 텍스트 변경
+
+                initTime = System.currentTimeMillis()
+                baseTimeStack.clear()
+                baseTime = initTime         // 첫 기준 시간
+
                 startDataSending()
             } else {
                 // 🔹 전송 중지
@@ -261,8 +270,11 @@ class MainActivity : Activity(), SensorEventListener {
 
         if (acceleration > SHAKE_THRESHOLD) {
             drinkCount = max(0, drinkCount - 1)
+            if (baseTimeStack.isNotEmpty()) baseTimeStack.pop()
+            baseTime = if (baseTimeStack.isNotEmpty()) baseTimeStack.peek() else initTime
             vibrateWatch()
             Log.d("ShakeDetection", "Shake detected! Count: $drinkCount")
+            updateDrinkUI()
         }
     }
 
@@ -299,6 +311,10 @@ class MainActivity : Activity(), SensorEventListener {
                 if (now - tiltStartTime >= TILT_HOLD_THRESHOLD) {
                     // (마시는 동작 감지)
                     drinkCount++
+                    val now = System.currentTimeMillis()
+                    baseTimeStack.push(now)   // 새 기준 시간을 쌓음
+                    baseTime = now
+
                     vibrateWatch()
                     updateDrinkUI()
 
@@ -375,11 +391,6 @@ class MainActivity : Activity(), SensorEventListener {
                 currentGyro = lowPassFilter(event.values.clone(), currentGyro)
             }
         }
-    }
-
-    private fun handleMotion(values: FloatArray) {
-        detectTilt(values)
-        detectShake(values)
     }
 
     private fun detectTilt(values: FloatArray) {
@@ -462,7 +473,8 @@ class MainActivity : Activity(), SensorEventListener {
         val timestamp = Instant.now()
             .atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-
+        val now = System.currentTimeMillis()
+        val elapsed = (now - baseTime) / 3600
         val userState = userStateSpinner.selectedItem.toString()
         val alcoholPercentage = alcoholInput.text.toString().toFloatOrNull()
 
@@ -472,12 +484,12 @@ class MainActivity : Activity(), SensorEventListener {
             .build()
 
         val api = retrofit.create(ApiService::class.java)
-        val sensorData = SensorData(timestamp, currentHeartRate.toInt(), drinkCount, userState, drinkCount, alcoholPercentage)
+        val sensorData = SensorData(timestamp, currentHeartRate.toInt(), drinkCount, elapsed, userState, drinkCount, alcoholPercentage)
 
         api.sendSensorData(sensorData).enqueue(object : Callback<Void> {
             override fun onResponse(call: Call<Void>, response: Response<Void>) {
                 if (response.isSuccessful) {
-                    Log.d("API", "✅ 데이터 전송 성공")
+                    Log.d("API", "✅ 데이터 전송 성공, ${elapsed}")
                 } else {
                     Log.e("API", "❌ 서버 응답 오류: ${response.code()}")
                 }
