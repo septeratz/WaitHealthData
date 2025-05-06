@@ -5,4 +5,11 @@
     values-round/strings.xml for round devices.
     -->
     <string name="hello_world">From the Square world,\nHello, %1$s!</string>
+
+    <string-array name="user_states">
+        <item>상태설정</item>
+        <item>음주X</item>
+        <item>음주중</item>
+    </string-array>
+
 </resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="user_state">
+        <item>평상시</item>
+        <item>음주 중</item>
+    </string-array>
+</resources>

@@ -1,10 +1,7 @@
-/* While this template provides a good starting point for using Wear Compose, you can always
- * take a look at https://github.com/android/wear-os-samples/tree/main/ComposeStarter to find the
- * most up to date changes to the libraries and their usages.
- */
 package com.example.waithealthdata.presentation
 
 import android.Manifest
+import android.R.attr.level
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
@@ -13,27 +10,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
+import android.os.*
+import android.provider.Telephony.TextBasedSmsColumns.BODY
 import android.util.Log
+import com.google.android.gms.wearable.PutDataMapRequest
 import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.Spinner
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.myapplication.R
 import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -64,37 +53,31 @@ interface ApiService {
 
 class MainActivity : Activity(), SensorEventListener {
 
-    private var isSendingData = false  // 🔹 전송 상태 플래그
-    private val handler = Handler(Looper.getMainLooper())  // 🔹 1초 간격 실행을 위한 핸들러
-
-    private val interval = 30 * 1000L // 30초 간격
+    private var isSendingData = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val interval = 2 * 1000L
 
     private lateinit var dataClient: DataClient
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
     private var skinTemperatureSensor: Sensor? = null
-    private var currentHeartRate: Float = -1f // 초기 심박수 값
-
     private var accelerometerSensor: Sensor? = null
-    private var drinkCount = 0
-    private var lastTiltTime = 0L
-    private var lastShakeTime = 0L
+    private var currentHeartRate: Float = -1f // 초기 심박수 값
     private val TILT_ANGLE = 60f // 기울기 감지 각도
     private val SHAKE_THRESHOLD = 15f // 흔들림 감지 임계값
     private val COOLDOWN_MS = 10000L // 중복 실행 방지 시간
 
-    private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
-
     private lateinit var sendDataButton: Button
-    private lateinit var confirmButton: Button
     private lateinit var userStateSpinner: Spinner
-    private lateinit var alcoholInput: EditText
     private lateinit var dataInputLayout: LinearLayout
     private lateinit var sensorSettingView: View
     private lateinit var resetSensorButton: Button
     private lateinit var saveSensorButton: Button
+    private lateinit var mainWrapper: LinearLayout
+    private lateinit var drinkCountTextView2: TextView
     private lateinit var toggleViewButton: Button
-
+    private lateinit var layoutDisableButton: Button
+    private lateinit var layoutDisableButton2: Button
     // ――― 시간 관리용 ―――
     private var initTime: Long = 0L            // 앱 시작(또는 전송 시작) 시간
     private val baseTimeStack = ArrayDeque<Long>() // 마실 때마다 쌓는 스택
@@ -120,15 +103,19 @@ class MainActivity : Activity(), SensorEventListener {
         }
         return output
     }
+    private var drinkCount = 0
+    private var lastTiltTime = 0L
+    private var lastShakeTime = 0L
+    private var alcoholInput = 0L
+
+
+    private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
-
-        // 센서 관리자 초기화
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         if (heartRateSensor == null) {
@@ -140,7 +127,6 @@ class MainActivity : Activity(), SensorEventListener {
         accelerometerSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
-
         skinTemperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
         if (skinTemperatureSensor == null) {
             Log.d("SensorCheck", "피부 온도 센서가 지원되지 않습니다.")
@@ -148,80 +134,88 @@ class MainActivity : Activity(), SensorEventListener {
             Log.d("SensorCheck", "피부 온도 센서가 지원됩니다.")
         }
 
-        // UI 요소 초기화
+        // UI 초기화
         sendDataButton = findViewById(R.id.sendDataButton)
-        confirmButton = findViewById(R.id.confirmButton)
         userStateSpinner = findViewById(R.id.userStateSpinner)
-        alcoholInput = findViewById(R.id.alcoholInput)
         dataInputLayout = findViewById(R.id.dataInputLayout)
         resetSensorButton = findViewById(R.id.resetSensorButton)
         saveSensorButton = findViewById(R.id.saveSensorButton)
         sensorSettingView = findViewById(R.id.sensorSettingView)
+        mainWrapper = findViewById(R.id.mainWrapper)
+        drinkCountTextView2 = findViewById(R.id.drinkCountTextView2)
         toggleViewButton = findViewById(R.id.toggleViewButton)
+        layoutDisableButton = findViewById(R.id.layoutDisableButton)
+        layoutDisableButton2 = findViewById(R.id.layoutDisableButton2)
 
-        // 기본적으로 숨김
         dataInputLayout.visibility = View.GONE
         sensorSettingView.visibility = View.GONE
 
-        // "데이터 전송" 버튼 클릭 시 UI 표시
+        // Spinner 설정 (음주X / 음주중)
+        val states = listOf("선택", "소주", "맥주")
+
+        val adapter = ArrayAdapter(this, R.layout.spinner_item, R.id.spinnerText, states)
+        adapter.setDropDownViewResource(R.layout.spinner_item)
+        userStateSpinner.adapter = adapter
+        userStateSpinner.setSelection(0)
+        userStateSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, pos: Int, id: Long) {
+                alcoholInput = when (pos) {          // pos: 0-선택, 1-소주, 2-맥주
+                    1 -> 17L                          // 소주 → 17%
+                    2 -> 5L                           // 맥주 → 5%
+                    else -> 0L                        // 선택 안 함
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) { /* no-op */ }
+        }
+
+
         sendDataButton.setOnClickListener {
+            // 메인 화면 요소 숨기고 측정 화면 표시
+            mainWrapper.visibility = View.INVISIBLE
             dataInputLayout.visibility = View.VISIBLE
-            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
+            drinkCountTextView2.text = "Drinks: $drinkCount"
+
+            // 전송 시작
+
+            isSendingData = true
+
+            initTime = System.currentTimeMillis()
+            baseTimeStack.clear()
+            baseTime = initTime         // 첫 기준 시간
+
+            startDataSending()
+
         }
 
-        findViewById<Button>(R.id.layoutDisableButton).setOnClickListener{
-            dataInputLayout.visibility = View.INVISIBLE
-        }
-
-        // "설정 열기" 버튼 클릭 시 UI 표시
         toggleViewButton.setOnClickListener {
             sensorSettingView.visibility = View.VISIBLE
-            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
         }
 
-
-        // 확인 버튼 클릭 시 전송 시작/중지
-        confirmButton.setOnClickListener {
-            if (!isSendingData) {
-                // 🔹 전송 시작
-                isSendingData = true
-                confirmButton.text = "전송 중지"  // 🔹 버튼 텍스트 변경
-
-                initTime = System.currentTimeMillis()
-                baseTimeStack.clear()
-                baseTime = initTime         // 첫 기준 시간
-
-                startDataSending()
-            } else {
-                // 🔹 전송 중지
-                isSendingData = false
-                confirmButton.text = "확인"  // 🔹 버튼 텍스트 변경
-                handler.removeCallbacksAndMessages(null)  // 🔹 반복 실행 중단
-            }
-        }
-
-        // 센서 초기화 버튼
-        resetSensorButton.setOnClickListener{
+        resetSensorButton.setOnClickListener {
             resetSensorValues()
-            Toast.makeText(this, "센서 세팅값이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-
+            Toast.makeText(this, "센서 초기화됨", Toast.LENGTH_SHORT).show()
         }
 
-        // 센서값 저장 버튼
-        saveSensorButton.setOnClickListener{
+        saveSensorButton.setOnClickListener {
             saveSensorValues()
+            Toast.makeText(this, "센서값 저장됨", Toast.LENGTH_SHORT).show()
         }
 
+        layoutDisableButton.setOnClickListener{
+            sensorSettingView.visibility = View.INVISIBLE
+        }
 
-        // Spinner 설정
-        val states = listOf("평상시", "음주 중")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, states)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        userStateSpinner.adapter = adapter
+        layoutDisableButton2.setOnClickListener{
+            dataInputLayout.visibility = View.INVISIBLE
+            mainWrapper.visibility = View.VISIBLE
+            // 🔹 전송 중지
+            isSendingData = false
+            handler.removeCallbacksAndMessages(null)  // 🔹 반복 실행 중단
 
-        // 권한 확인 및 요청
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.BODY_SENSORS),
@@ -229,16 +223,12 @@ class MainActivity : Activity(), SensorEventListener {
             )
         } else {
             startSensorMonitoring()
-
         }
 
-        // DataClient 초기화
         dataClient = Wearable.getDataClient(this)
         skinTemperatureSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
-
-
     }
 
     override fun onRequestPermissionsResult(
@@ -449,7 +439,7 @@ class MainActivity : Activity(), SensorEventListener {
             override fun run() {
                 if (isSendingData) {
                     sendDataToAWS()
-                    handler.postDelayed(this, 1000 * 60)  // 🔹 60초 후 다시 실행
+                    handler.postDelayed(this, interval)  // 🔹 60초 후 다시 실행
                 }
             }
         }
@@ -475,10 +465,15 @@ class MainActivity : Activity(), SensorEventListener {
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val now = System.currentTimeMillis()
         val elapsed = (now - baseTime) / 3600
-        val userState = userStateSpinner.selectedItem.toString()
-        val alcoholPercentage = alcoholInput.text.toString().toFloatOrNull()
+        val userState = if (isSendingData) "음주 중" else "평상시"
+        val alcoholPercentage = alcoholInput.toFloat()
 
+        val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+        val ok = OkHttpClient.Builder()
+            .addInterceptor(logger)
+            .build()
         val retrofit = Retrofit.Builder()
+            .client(ok)
             .baseUrl("https://moh7cm1z80.execute-api.us-east-1.amazonaws.com/prod/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
