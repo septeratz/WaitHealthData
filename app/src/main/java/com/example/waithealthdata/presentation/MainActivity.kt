@@ -125,12 +125,22 @@ class MainActivity : Activity(), SensorEventListener {
 
         sendDataButton.setOnClickListener {
             dataInputLayout.visibility = View.VISIBLE
-            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
+            sensorSettingView.visibility = View.GONE // 혹시 열려있을까봐 닫음
+            findViewById<TextView>(R.id.drinkCountTextView).visibility = View.GONE
+            findViewById<LinearLayout>(R.id.iconLayout).visibility = View.GONE
+            sendDataButton.visibility = View.GONE
+            toggleViewButton.visibility = View.GONE
         }
 
+
         findViewById<Button>(R.id.layoutDisableButton).setOnClickListener {
-            dataInputLayout.visibility = View.INVISIBLE
+            dataInputLayout.visibility = View.GONE
+            findViewById<TextView>(R.id.drinkCountTextView).visibility = View.VISIBLE
+            findViewById<LinearLayout>(R.id.iconLayout).visibility = View.VISIBLE
+            sendDataButton.visibility = View.VISIBLE
+            toggleViewButton.visibility = View.VISIBLE
         }
+
 
         toggleViewButton.setOnClickListener {
             sensorSettingView.visibility = View.VISIBLE

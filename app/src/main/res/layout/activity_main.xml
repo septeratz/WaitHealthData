@@ -79,12 +79,13 @@
     <LinearLayout
         android:id="@+id/dataInputLayout"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:orientation="vertical"
         android:background="#222222"
         android:padding="16dp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/sendDataButton"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
