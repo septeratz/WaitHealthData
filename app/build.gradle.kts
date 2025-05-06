@@ -48,7 +48,12 @@ dependencies {
     implementation(libs.constraintlayout) // AWS DataStore (선택)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.play.services.wearable)
+    // ① OkHttp BOM으로 4.12.0(or 4.11.x) 계열 고정
+    implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))
 
+    // ② core + logging-interceptor 같은 버전으로
+    implementation("com.squareup.okhttp3:okhttp")
+    implementation("com.squareup.okhttp3:logging-interceptor")
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-moshi:2.9.0")
 
