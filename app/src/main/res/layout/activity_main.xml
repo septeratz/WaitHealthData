@@ -1,120 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.waithealthdata.presentation.MainActivity">
+    android:background="#000000">
 
-    <!-- 데이터 전송 버튼 -->
-    <!-- 메인 UI -->
-
-    <!-- 센서 설정 View (초기 상태: GONE) -->
-
-    <Button
-        android:id="@+id/toggleViewButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="24dp"
-        android:text="설정 열기"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.496"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/sendDataButton"
-        app:layout_constraintVertical_bias="0.0" />
-
-    <LinearLayout
-        android:id="@+id/sensorSettingView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/darker_gray"
-        android:padding="16dp"
-        android:orientation="vertical"
-        android:visibility="gone"
-        android:layout_gravity="bottom"
-        tools:ignore="MissingConstraints">
-
-        <Button
-            android:id="@+id/resetSensorButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="센서 초기화"/>
-
-        <Button
-            android:id="@+id/saveSensorButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="세팅값 저장"
-            android:layout_marginTop="10dp"/>
-
-    </LinearLayout>
-    <!-- UI를 감싸는 레이아웃 (처음에는 숨김) -->
+    <!-- Drinks 텍스트 -->
     <TextView
         android:id="@+id/drinkCountTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="TextView"
-        app:layout_constraintBottom_toTopOf="@+id/sendDataButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="64dp"
+        android:text="☑️ Drinks: 0"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.687" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- 아이콘 묶음 -->
+    <LinearLayout
+        android:id="@+id/iconLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/drinkCountTextView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/beerIcon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/beer"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="맥주"/>
+
+        <ImageView
+            android:id="@+id/sojuIcon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/soju"
+            android:contentDescription="소주"/>
+    </LinearLayout>
+
+    <!-- 측정 시작 버튼 -->
     <Button
         android:id="@+id/sendDataButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="88dp"
-        android:text="데이터 전송"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="44dp"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="#333333"
+        android:elevation="4dp"
+        android:text="측정 시작"
+        android:textColor="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/iconLayout"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <!-- 설정 아이콘 (측정 시작 오른쪽에 위치) -->
+    <ImageButton
+        android:id="@+id/toggleViewButton"
+        android:layout_width="30dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="설정"
+        android:src="@android:drawable/ic_menu_manage"
+        android:tint="#FFFFFF"
+        app:layout_constraintTop_toTopOf="@id/sendDataButton"
+        app:layout_constraintBottom_toBottomOf="@id/sendDataButton"
+        app:layout_constraintStart_toEndOf="@id/sendDataButton" />
+
+    <!-- 음주 정보 입력 화면 (숨김) -->
     <LinearLayout
         android:id="@+id/dataInputLayout"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
         android:orientation="vertical"
-        android:padding="20dp"
+        android:background="#222222"
+        android:padding="16dp"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sendDataButton"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 음주 상태 선택 (Spinner) -->
         <Spinner
             android:id="@+id/userStateSpinner"
-            android:layout_width="250dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp" />
+            android:layout_marginBottom="12dp"/>
 
-        <!-- 술 도수 입력 (EditText) -->
         <EditText
             android:id="@+id/alcoholInput"
-            android:layout_width="250dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
             android:hint="술 도수 입력 (예: 12.5)"
-            android:inputType="numberDecimal" />
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#AAAAAA" />
 
-        <!-- 확인 버튼 -->
         <Button
             android:id="@+id/confirmButton"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="확인" />
+            android:text="확인"/>
 
         <Button
             android:id="@+id/layoutDisableButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="확인" />
+            android:text="닫기"
+            android:layout_marginTop="8dp"/>
+    </LinearLayout>
 
+    <!-- 설정 화면 (숨김) -->
+    <LinearLayout
+        android:id="@+id/sensorSettingView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#333333"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/dataInputLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/resetSensorButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="센서 초기화" />
+
+        <Button
+            android:id="@+id/saveSensorButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="센서값 저장"
+            android:layout_marginTop="10dp"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
