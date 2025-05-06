@@ -17,32 +17,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.myapplication.R
 import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
-import retrofit2.*
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.*
-import kotlin.math.*
-
-data class SensorData(
-    val timestamp: String,
-    val heart_rate: Int?,
-    val drink_count: Int?,
-    val elapsed_time: Long,
-    val user_state: String,
-    val drink_amount: Int?,
-    val alcohol_percentage: Float?
-)
-
-interface ApiService {
-    @POST("sensor_data")
-    fun sendSensorData(@Body data: SensorData): Call<Void>
-}
 
 class MainActivity : Activity(), SensorEventListener {
 
@@ -54,51 +29,21 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var heartRateSensor: Sensor? = null
     private var skinTemperatureSensor: Sensor? = null
-    private var currentHeartRate: Float = -1f
-
     private var accelerometerSensor: Sensor? = null
-    private var drinkCount = 0
-    private var lastTiltTime = 0L
-    private var lastShakeTime = 0L
-    private val TILT_ANGLE = 60f
-    private val SHAKE_THRESHOLD = 15f
-    private val COOLDOWN_MS = 10000L
-
-    private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
     private lateinit var sendDataButton: Button
-    private lateinit var confirmButton: Button
     private lateinit var userStateSpinner: Spinner
-    private lateinit var alcoholInput: EditText
     private lateinit var dataInputLayout: LinearLayout
     private lateinit var sensorSettingView: View
     private lateinit var resetSensorButton: Button
     private lateinit var saveSensorButton: Button
-    private lateinit var toggleViewButton: ImageButton
+    private lateinit var mainWrapper: LinearLayout
+    private lateinit var drinkCountTextView2: TextView
+    private lateinit var toggleViewButton: Button
 
-    private var initTime: Long = 0L
-    private val baseTimeStack = ArrayDeque<Long>()
-    private var baseTime: Long = 0L
+    private var drinkCount = 0
 
-    private var baselineGravity: FloatArray? = null
-    private var baselineGyro: FloatArray? = null
-    private var savedGravity: FloatArray? = null
-    private var savedGyro: FloatArray? = null
-    private var currentGravity: FloatArray? = null
-    private var currentGyro: FloatArray? = null
-    private val ALPHA = 0.1f
-    private var tiltStartTime = -1L
-    private val TILT_HOLD_THRESHOLD = 800L
-    private val DRINK_MATCH_ANGLE = 20.0
-    private var lastDrinkTime = 0L
-
-    private fun lowPassFilter(input: FloatArray, output: FloatArray?): FloatArray {
-        if (output == null) return input
-        for (i in input.indices) {
-            output[i] = output[i] + ALPHA * (input[i] - output[i])
-        }
-        return output
-    }
+    private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,73 +56,49 @@ class MainActivity : Activity(), SensorEventListener {
         skinTemperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
 
         sendDataButton = findViewById(R.id.sendDataButton)
-        confirmButton = findViewById(R.id.confirmButton)
         userStateSpinner = findViewById(R.id.userStateSpinner)
-        alcoholInput = findViewById(R.id.alcoholInput)
         dataInputLayout = findViewById(R.id.dataInputLayout)
         resetSensorButton = findViewById(R.id.resetSensorButton)
         saveSensorButton = findViewById(R.id.saveSensorButton)
         sensorSettingView = findViewById(R.id.sensorSettingView)
+        mainWrapper = findViewById(R.id.mainWrapper)
+        drinkCountTextView2 = findViewById(R.id.drinkCountTextView2)
         toggleViewButton = findViewById(R.id.toggleViewButton)
 
         dataInputLayout.visibility = View.GONE
         sensorSettingView.visibility = View.GONE
 
-        sendDataButton.setOnClickListener {
-            dataInputLayout.visibility = View.VISIBLE
-            sensorSettingView.visibility = View.GONE // 혹시 열려있을까봐 닫음
-            findViewById<TextView>(R.id.drinkCountTextView).visibility = View.GONE
-            findViewById<LinearLayout>(R.id.iconLayout).visibility = View.GONE
-            sendDataButton.visibility = View.GONE
-            toggleViewButton.visibility = View.GONE
-        }
-
-
-        findViewById<Button>(R.id.layoutDisableButton).setOnClickListener {
-            dataInputLayout.visibility = View.GONE
-            findViewById<TextView>(R.id.drinkCountTextView).visibility = View.VISIBLE
-            findViewById<LinearLayout>(R.id.iconLayout).visibility = View.VISIBLE
-            sendDataButton.visibility = View.VISIBLE
-            toggleViewButton.visibility = View.VISIBLE
-        }
-
-
-        toggleViewButton.setOnClickListener {
-            sensorSettingView.visibility = View.VISIBLE
-            findViewById<TextView>(R.id.drinkCountTextView).bringToFront()
-        }
-
-        confirmButton.setOnClickListener {
-            if (!isSendingData) {
-                isSendingData = true
-                confirmButton.text = "전송 중지"
-                initTime = System.currentTimeMillis()
-                baseTimeStack.clear()
-                baseTime = initTime
-                startDataSending()
-            } else {
-                isSendingData = false
-                confirmButton.text = "확인"
-                handler.removeCallbacksAndMessages(null)
-            }
-        }
-
-        resetSensorButton.setOnClickListener {
-            resetSensorValues()
-            Toast.makeText(this, "센서 세팅값이 저장되었습니다.", Toast.LENGTH_SHORT).show()
-        }
-
-        saveSensorButton.setOnClickListener {
-            saveSensorValues()
-        }
-
-        val states = listOf("평상시", "음주 중")
+        // Spinner 설정 (음주X / 음주중)
+        val states = listOf("상태설정", "음주X", "음주중")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, states)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         userStateSpinner.adapter = adapter
+        userStateSpinner.setSelection(0)
+
+
+
+        sendDataButton.setOnClickListener {
+            // 메인 화면 요소 숨기고 측정 화면 표시
+            mainWrapper.visibility = View.GONE
+            dataInputLayout.visibility = View.VISIBLE
+            drinkCountTextView2.text = "Drinks: $drinkCount"
+        }
+
+        toggleViewButton.setOnClickListener {
+            sensorSettingView.visibility = View.VISIBLE
+        }
+
+        resetSensorButton.setOnClickListener {
+            Toast.makeText(this, "센서 초기화됨", Toast.LENGTH_SHORT).show()
+        }
+
+        saveSensorButton.setOnClickListener {
+            Toast.makeText(this, "센서값 저장됨", Toast.LENGTH_SHORT).show()
+        }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.BODY_SENSORS),
@@ -190,17 +111,10 @@ class MainActivity : Activity(), SensorEventListener {
         dataClient = Wearable.getDataClient(this)
     }
 
+    private fun startSensorMonitoring() {
+        // 센서 시작 로직 필요 시 여기에
+    }
+
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-
     override fun onSensorChanged(event: SensorEvent?) {}
-
-    private fun resetSensorValues() {}
-
-    private fun saveSensorValues() {}
-
-    private fun startSensorMonitoring() {}
-
-    private fun startDataSending() {}
-
-    private fun sendDataToAWS() {}
 }

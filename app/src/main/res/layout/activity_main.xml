@@ -6,123 +6,142 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Drinks 텍스트 -->
-    <TextView
-        android:id="@+id/drinkCountTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="64dp"
-        android:text="☑️ Drinks: 0"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- 아이콘 묶음 -->
+    <!-- 메인 화면 요소 -->
     <LinearLayout
-        android:id="@+id/iconLayout"
+        android:id="@+id/mainWrapper"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/drinkCountTextView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <ImageView
-            android:id="@+id/beerIcon"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/beer"
-            android:layout_marginEnd="8dp"
-            android:contentDescription="맥주"/>
-
-        <ImageView
-            android:id="@+id/sojuIcon"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/soju"
-            android:contentDescription="소주"/>
-    </LinearLayout>
-
-    <!-- 측정 시작 버튼 -->
-    <Button
-        android:id="@+id/sendDataButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="44dp"
-        android:layout_marginTop="12dp"
-        android:backgroundTint="#333333"
-        android:elevation="4dp"
-        android:text="측정 시작"
-        android:textColor="#FFFFFF"
-        app:layout_constraintTop_toBottomOf="@id/iconLayout"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <!-- 설정 아이콘 (측정 시작 오른쪽에 위치) -->
-    <ImageButton
-        android:id="@+id/toggleViewButton"
-        android:layout_width="30dp"
-        android:layout_height="32dp"
-        android:layout_marginStart="12dp"
-        android:contentDescription="설정"
-        android:src="@android:drawable/ic_menu_manage"
-        android:tint="#FFFFFF"
-        app:layout_constraintTop_toTopOf="@id/sendDataButton"
-        app:layout_constraintBottom_toBottomOf="@id/sendDataButton"
-        app:layout_constraintStart_toEndOf="@id/sendDataButton" />
-
-    <!-- 음주 정보 입력 화면 (숨김) -->
-    <LinearLayout
-        android:id="@+id/dataInputLayout"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
         android:orientation="vertical"
-        android:background="#222222"
-        android:padding="16dp"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/sendDataButton"
+        android:gravity="center_horizontal"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <Spinner
-            android:id="@+id/userStateSpinner"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/drinkCountTextView"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"/>
-
-        <EditText
-            android:id="@+id/alcoholInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="술 도수 입력 (예: 12.5)"
-            android:inputType="numberDecimal"
-            android:layout_marginBottom="12dp"
+            android:text="Drinks: 0"
             android:textColor="#FFFFFF"
-            android:textColorHint="#AAAAAA" />
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
 
-        <Button
-            android:id="@+id/confirmButton"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:id="@+id/iconLayout"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="확인"/>
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="12dp">
 
-        <Button
-            android:id="@+id/layoutDisableButton"
-            android:layout_width="match_parent"
+            <ImageView
+                android:id="@+id/beerIcon"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:src="@drawable/beer"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="맥주"/>
+
+            <ImageView
+                android:id="@+id/sojuIcon"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:src="@drawable/soju"
+                android:contentDescription="소주"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="닫기"
-            android:layout_marginTop="8dp"/>
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <Button
+                android:id="@+id/sendDataButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#333333"
+                android:text="측정 시작"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="8dp"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/userStateSpinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#444444"
+                android:popupBackground="#000000"
+                android:theme="@style/ThemeOverlay.AppCompat.Dark"
+                android:textAlignment="center"
+                android:textColorHint="#FFFFFF"
+                android:textColor="#FFFFFF"
+                android:layout_marginStart="8dp"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 설정 버튼 -->
+        <Button
+            android:id="@+id/toggleViewButton"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#444444"
+            android:text="설정"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp" />
     </LinearLayout>
 
-    <!-- 설정 화면 (숨김) -->
+    <!-- 측정중 화면 -->
+    <LinearLayout
+        android:id="@+id/dataInputLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:background="#000000"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/bacStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BAC 측정 중..."
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/drinkCountTextView2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Drinks: 0"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <Spinner
+            android:id="@+id/userStateSpinnerInMeasure"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#444444"
+            android:popupBackground="#000000"
+            android:theme="@style/ThemeOverlay.AppCompat.Dark"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+
+    <!-- 센서 설정 화면 -->
     <LinearLayout
         android:id="@+id/sensorSettingView"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp"
@@ -143,7 +162,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="센서값 저장"
-            android:layout_marginTop="10dp"/>
+            android:layout_marginTop="10dp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
