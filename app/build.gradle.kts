@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "com.example.todays_drink"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.myapplication"
+        applicationId = "com.example.todays_drink"
         minSdk = 30
         targetSdk = 34
         versionCode = 1
@@ -47,7 +47,7 @@ dependencies {
     implementation(libs.aws.datastore)
     implementation(libs.constraintlayout) // AWS DataStore (선택)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-    implementation(libs.play.services.wearable)
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")
     // ① OkHttp BOM으로 4.12.0(or 4.11.x) 계열 고정
     implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))
 

@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WaitHealthData"
+rootProject.name = "todays_drink"
 include(":app")

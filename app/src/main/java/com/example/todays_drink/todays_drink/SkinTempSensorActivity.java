@@ -1,4 +1,4 @@
-package com.example.waithealthdata.presentation;
+package com.example.todays_drink.todays_drink;
 
 import android.app.Activity;
 import android.hardware.Sensor;

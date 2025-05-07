@@ -30,7 +30,7 @@
             android:value="true" />
 
         <activity
-            android:name="com.example.waithealthdata.presentation.MainActivity"
+            android:name="com.example.todays_drink.todays_drink.MainActivity"
             android:exported="true"
             android:taskAffinity=""
             android:theme="@style/MainActivityTheme.Starting">

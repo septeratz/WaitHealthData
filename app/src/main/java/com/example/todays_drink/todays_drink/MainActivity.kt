@@ -1,26 +1,22 @@
-package com.example.waithealthdata.presentation
+package com.example.todays_drink.todays_drink
 
 import android.Manifest
-import android.R.attr.level
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.*
-import android.provider.Telephony.TextBasedSmsColumns.BODY
 import android.util.Log
 import com.google.android.gms.wearable.PutDataMapRequest
 import android.view.View
 import android.widget.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.myapplication.R
-import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.Wearable
+import com.example.todays_drink.R
+import com.google.android.gms.wearable.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
@@ -51,7 +47,7 @@ interface ApiService {
     fun sendSensorData(@Body data: SensorData): Call<Void>
 }
 
-class MainActivity : Activity(), SensorEventListener {
+class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedListener {
 
     private var isSendingData = false
     private val handler = Handler(Looper.getMainLooper())
@@ -116,7 +112,7 @@ class MainActivity : Activity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         if (heartRateSensor == null) {
             Log.e("Sensor", "Heart rate sensor is not available.")
@@ -134,9 +130,12 @@ class MainActivity : Activity(), SensorEventListener {
             Log.d("SensorCheck", "피부 온도 센서가 지원됩니다.")
         }
 
+        // DataClient 초기화 & 리스너 등록
+        dataClient = Wearable.getDataClient(this)
+        dataClient.addListener(this)
         // UI 초기화
         sendDataButton = findViewById(R.id.sendDataButton)
-        userStateSpinner = findViewById(R.id.userStateSpinner)
+        // userStateSpinner = findViewById(R.id.userStateSpinner) 도수 체크용 스피너, 사용하지 않음
         dataInputLayout = findViewById(R.id.dataInputLayout)
         resetSensorButton = findViewById(R.id.resetSensorButton)
         saveSensorButton = findViewById(R.id.saveSensorButton)
@@ -150,6 +149,7 @@ class MainActivity : Activity(), SensorEventListener {
         dataInputLayout.visibility = View.GONE
         sensorSettingView.visibility = View.GONE
 
+        /*
         // Spinner 설정 (음주X / 음주중)
         val states = listOf("선택", "소주", "맥주")
 
@@ -158,6 +158,7 @@ class MainActivity : Activity(), SensorEventListener {
         userStateSpinner.adapter = adapter
         userStateSpinner.setSelection(0)
         userStateSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+
             override fun onItemSelected(parent: AdapterView<*>, view: View?, pos: Int, id: Long) {
                 alcoholInput = when (pos) {          // pos: 0-선택, 1-소주, 2-맥주
                     1 -> 17L                          // 소주 → 17%
@@ -167,6 +168,8 @@ class MainActivity : Activity(), SensorEventListener {
             }
             override fun onNothingSelected(parent: AdapterView<*>) { /* no-op */ }
         }
+
+         */
 
 
         sendDataButton.setOnClickListener {
@@ -269,7 +272,7 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private fun vibrateWatch() {
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
@@ -324,11 +327,11 @@ class MainActivity : Activity(), SensorEventListener {
 
     private fun angleBetween(g1: FloatArray, g2: FloatArray): Double {
         val dot = g1[0]*g2[0] + g1[1]*g2[1] + g1[2]*g2[2]
-        val mag1 = kotlin.math.sqrt(g1[0]*g1[0] + g1[1]*g1[1] + g1[2]*g1[2])
-        val mag2 = kotlin.math.sqrt(g2[0]*g2[0] + g2[1]*g2[1] + g2[2]*g2[2])
+        val mag1 = sqrt(g1[0]*g1[0] + g1[1]*g1[1] + g1[2]*g1[2])
+        val mag2 = sqrt(g2[0]*g2[0] + g2[1]*g2[1] + g2[2]*g2[2])
         val cosine = dot / (mag1 * mag2)
         val clamped = cosine.coerceIn((-1.0).toFloat(), 1.0F)
-        val angleRadians = kotlin.math.acos(clamped)
+        val angleRadians = acos(clamped)
         return Math.toDegrees(angleRadians.toDouble())
     }
     fun saveSensorValues() {
@@ -433,6 +436,19 @@ class MainActivity : Activity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
+    override fun onDataChanged(buffer: DataEventBuffer) {
+        for (ev in buffer) {
+            if (ev.type == DataEvent.TYPE_CHANGED &&
+                ev.dataItem.uri.path?.startsWith("/drink_info") == true) {
+
+                val map = DataMapItem.fromDataItem(ev.dataItem).dataMap
+                val percent = map.getFloat("alcohol_percentage")
+                alcoholInput = percent.toLong()      // 기존 변수 사용
+
+            }
+        }
+    }
+
     // 🔹 60초마다 AWS로 데이터 전송하는 함수
     private fun startDataSending() {
         val sendDataRunnable = object : Runnable {
@@ -464,7 +480,7 @@ class MainActivity : Activity(), SensorEventListener {
             .atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val now = System.currentTimeMillis()
-        val elapsed = (now - baseTime) / 3600
+        val elapsed = (now - baseTime) / 1000 / 60
         val userState = if (isSendingData) "음주 중" else "평상시"
         val alcoholPercentage = alcoholInput.toFloat()
 
