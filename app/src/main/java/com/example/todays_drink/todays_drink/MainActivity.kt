@@ -44,7 +44,7 @@ data class SensorData(
 
 interface ApiService {
     @POST("sensor_data")
-    fun sendSensorData(@Body data: SensorData): Call<Void>
+    fun sendSensorData(@Body data: SensorData): Call<PredictResponse>
 }
 
 class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedListener {
@@ -74,6 +74,7 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
     private lateinit var toggleViewButton: Button
     private lateinit var layoutDisableButton: Button
     private lateinit var layoutDisableButton2: Button
+
     // ――― 시간 관리용 ―――
     private var initTime: Long = 0L            // 앱 시작(또는 전송 시작) 시간
     private val baseTimeStack = ArrayDeque<Long>() // 마실 때마다 쌓는 스택
@@ -103,6 +104,7 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
     private var lastTiltTime = 0L
     private var lastShakeTime = 0L
     private var alcoholInput = 0L
+    private var currentBac = 0.0f
 
 
     private val BODY_SENSORS_PERMISSION_REQUEST_CODE = 1
@@ -497,16 +499,29 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
         val api = retrofit.create(ApiService::class.java)
         val sensorData = SensorData(timestamp, currentHeartRate.toInt(), drinkCount, elapsed, userState, drinkCount, alcoholPercentage)
 
-        api.sendSensorData(sensorData).enqueue(object : Callback<Void> {
-            override fun onResponse(call: Call<Void>, response: Response<Void>) {
-                if (response.isSuccessful) {
-                    Log.d("API", "✅ 데이터 전송 성공, ${elapsed}")
-                } else {
+        api.sendSensorData(sensorData).enqueue(object : Callback<PredictResponse> {
+            override fun onResponse(call: Call<PredictResponse>, response: Response<PredictResponse>) {
+                if (!response.isSuccessful) {
                     Log.e("API", "❌ 서버 응답 오류: ${response.code()}")
+                    return
                 }
+
+                val bac = response.body()?.bac ?: return
+
+                /* ① 워치 내부에서 쓸 일 있으면 변수에 저장 */
+                currentBac = bac.toFloat()
+
+                /* ② 폰으로 전송 – path: /bac_info */
+                val req = PutDataMapRequest.create("/bac_info").apply {
+                    dataMap.putFloat("bac", currentBac)
+                    dataMap.putLong("timestamp", System.currentTimeMillis())
+                }.asPutDataRequest()
+                dataClient.putDataItem(req)        // ★ non-blocking
+
+                Log.d("Wear->Phone", "BAC sent ($currentBac)")
             }
 
-            override fun onFailure(call: Call<Void>, t: Throwable) {
+            override fun onFailure(call: Call<PredictResponse>, t: Throwable) {
                 Log.e("API", "❌ 네트워크 오류: ${t.message}")
             }
         })
