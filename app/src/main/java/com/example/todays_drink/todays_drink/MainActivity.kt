@@ -51,7 +51,7 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
 
     private var isSendingData = false
     private val handler = Handler(Looper.getMainLooper())
-    private val interval = 2 * 1000L
+    private val interval = 30 * 1000L
 
     private lateinit var dataClient: DataClient
     private lateinit var sensorManager: SensorManager
@@ -189,7 +189,6 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
             baseTime = initTime         // 첫 기준 시간
 
             startDataSending()
-
         }
 
         toggleViewButton.setOnClickListener {
@@ -361,9 +360,9 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
         when (event?.sensor?.type) {
             Sensor.TYPE_HEART_RATE -> {
                 val heartRate = event.values[0].toInt()
-                sendDataToPhone()
                 Log.d("WearOS", "심박수: $heartRate bpm")
                 currentHeartRate = heartRate.toFloat()
+                sendDataToPhone()
             }
             Sensor.TYPE_AMBIENT_TEMPERATURE -> {
                 val skinTemperature = event.values[0]
@@ -405,6 +404,7 @@ class MainActivity : Activity(), SensorEventListener, DataClient.OnDataChangedLi
     private fun updateDrinkUI() {
         runOnUiThread {
             findViewById<TextView>(R.id.drinkCountTextView).text = "Drinks: $drinkCount"
+            findViewById<TextView>(R.id.drinkCountTextView2).text = "Drinks: $drinkCount"
         }
     }
     private fun vibrate(durationMs: Long) {
